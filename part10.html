@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Laberinto</title>
+    <!--<script src="//cdn.jsdelivr.net/npm/phaser@3.80.1/dist/phaser.js"></script>-->
+    <script src="./js/phaser.js"></script>
+    <style type="text/css">
+        body {
+            height: 100vh;
+            margin: 0;
+            /* background-image: url('assets/bgFloor.png'); */
+            background-position: center;
+            background-repeat: repeat;
+            background-size: cover;
+        }
+    </style>
+</head>
+
+<body>
+
+    <script type="text/javascript">
+        var config = {
+            type: Phaser.AUTO,
+            width: 1300,
+            height: 700,
+            parent: 'gameContainer',
+            transparent: true,
+            physics: {
+                default: 'arcade',
+                arcade: {
+                    gravity: { y: 0 },
+                    debug: false
+                }
+            },
+            scene: {
+                preload: preload,
+                create: create,
+                update: update
+            }
+        };
+        var player;
+        var bones;
+        var bombs;
+        var door;
+        var cursors;
+        var score = 0;
+        var gameOver = false;
+        var scoreText;
+        var timeText;
+        var tiempo = 120;
+        var game = new Phaser.Game(config);
+        function preload() {
+            this.load.image('bone', './assets/bone.png');
+            this.load.image('bomb', './assets/mano.png');
+            this.load.audio('walk', '/assets/audio.mp3');
+            this.load.image('paredes', 'assets/pared.png');
+            this.load.image('piso', 'assets/piso.png');
+            this.load.image('door', 'assets/bgFloor.png');
+            this.load.tilemapTiledJSON('map2', '/assets/laberintoMap.json');
+            this.load.tilemapTiledJSON('map', '/assets/laberintoMap2.json');
+            this.load.spritesheet('dude', './assets/Male_W.png', { frameWidth: 48, frameHeight: 96 });
+        }
+        function create() {
+            var map = this.make.tilemap({ key: 'map' });
+            var tilesetPiso = map.addTilesetImage('piso', 'piso');
+            var tilesetParedes = map.addTilesetImage('paredes', 'paredes');
+            var pisoLayer = map.createLayer('piso', tilesetPiso);
+            var paredesLayer = map.createLayer('paredes', tilesetParedes);
+            paredesLayer.setCollisionByExclusion([-1]);
+
+            player = this.physics.add.sprite(60, 570, 'dude').setScale(.4).refreshBody().setScale(.5);
+            player.setBounce(0.2);
+            player.setCollideWorldBounds(true);
+            this.physics.world.setBoundsCollision(true, true, true, false);
+            this.physics.add.collider(player, paredesLayer);
+            this.anims.create({
+                key: 'turn',
+                frames: this.anims.generateFrameNumbers('dude', { start: 36, end: 47 }),
+                frameRate: 10,
+                repeat: -1
+            });
+            this.anims.create({
+                key: 'bottom',
+                frames: this.anims.generateFrameNumbers('dude', { start: 0, end: 11 }),
+                frameRate: 10,
+                repeat: -1
+            });
+            this.anims.create({
+                key: 'died',
+                frames: this.anims.generateFrameNumbers('dude', { start: 2, end: 2 }),
+                frameRate: 10,
+                repeat: -1
+            });
+            this.anims.create({
+                key: 'left',
+                frames: this.anims.generateFrameNumbers('dude', { start: 12, end: 23 }),
+                frameRate: 10,
+                repeat: -1
+            });
+            this.anims.create({
+                key: 'wait',
+                frames: [{ key: 'dude', frame: 0 }],
+                frameRate: 20
+            });
+            this.anims.create({
+                key: 'right',
+                frames: this.anims.generateFrameNumbers('dude', { start: 24, end: 35 }),
+                frameRate: 10,
+                repeat: -1
+            });
+
+            var numberOfBones = 5; // Número de huesos que quieres crear
+            var bonePositions = [
+                { x: 160, y: 150 },
+                { x: 160, y: 490 },
+                { x: 500, y: 150 },
+                { x: 860, y: 350 },
+                { x: 700, y: 150 },
+                { x: 1010, y: 200 }
+            ];
+
+            for (var i = 0; i <= numberOfBones; i++) {
+                var x = Phaser.Math.Between(0, game.config.width);
+                var y = Phaser.Math.Between(0, game.config.height);
+                bonePositions.push({ x: x, y: y });
+            }
+
+            bones = this.physics.add.group({
+                key: 'bone',
+                repeat: 5,
+                setXY: { x: 0, y: 0 }
+            });
+
+            bones.children.iterate(function (bone, index) {
+                bone.setX(bonePositions[index].x);
+                bone.setY(bonePositions[index].y);
+            });
+
+            cursors = this.input.keyboard.createCursorKeys();
+
+            this.walk = this.sound.add('walk');
+
+            door = this.physics.add.staticGroup();
+            door.create(1217, 575, 'door')
+            
+            bombs = this.physics.add.group();
+            scoreText = this.add.text(16, 16, '', { fontSize: '32px', fill: '#fff' });
+            timeText = this.add.text(tamaño(100, 'w') - 350, 16, 'Tiempo : ' + tiempo, { fontSize: '32px', fill: '#fff' });
+            this.physics.add.overlap(player, bones, collectBone, null, this);
+            this.physics.add.collider(player, bombs, hitBomb, null, this);
+            
+            var interval = setInterval(() => {
+                let timeout = setTimeout(() => {
+                    createBomb()
+                }, Phaser.Math.Between(1000, 5000));
+            }, 2000)
+
+            var time = setInterval(() => {
+                tiempo -= 1
+                timeText.setText(`Tiempo : ${tiempo}`);
+                if (tiempo == 0) {
+                    scoreText.setText(`No pudiste`);
+                    this.physics.pause();
+                    player.setTint(0x000);
+                    player.anims.play('wait');
+                    gameOver = true;
+                    clearInterval(time)
+                }
+            }, 1000)
+            
+            
+            function collectBone(player, bomb) {
+                bomb.disableBody(true, true);
+                score += 1;
+                tiempo += 20
+                scoreText.setText(`Partes encontradas : ${score} / 6`);
+                if (bones.countActive(true) === 0) {
+                    this.physics.pause();
+                    player.setTint(0xfff);
+                    player.anims.play('wait');
+                    gameOver = true;
+                    clearInterval(interval)
+                    scoreText.setText(`Has ascendido`);
+                    timeText.setText(`OH! , lo hiciste`);
+                    clearInterval(time)
+                }
+            }
+            
+            function createBomb() {
+                var bomb = bombs.create(Phaser.Math.Between(-100, tamaño(100, 'w')), 0, 'bomb').setScale(.5).refreshBody().setScale(1.5);
+                bomb.setVelocityY(Phaser.Math.Between(50, 100));
+            }
+            this.physics.add.collider(player, door, win, null, this);
+            
+            function hitBomb(player, bomb) {
+                clearInterval(interval)
+                scoreText.setText(`Has sido atrapado`);
+                timeText.setText(`POR SIEMPRE`);
+                clearInterval(time)
+                this.physics.pause();
+                player.setTint(0xff0000);
+                player.anims.play('wait');
+            }
+            
+
+            function win(player, door) {
+                clearInterval(interval)
+                clearInterval(time)
+                scoreText.setText(`Lo lograste`);
+                timeText.setText(`HASTA LUEGO`);
+                this.physics.pause();
+                player.setTint(0xff0000);
+                player.anims.play('wait');
+                gameOver = true;
+            }
+            
+        }
+
+        function update() {
+            player.body.velocity.x = 0;
+            player.body.velocity.y = 0;
+            if (gameOver) {
+                if (this.walk.isPlaying) {
+                    this.walk.stop();
+                }
+                return;
+            }
+            if (cursors.left.isDown) {
+                if (!this.walk.isPlaying) {
+                    this.walk.play();
+                }
+                player.setVelocityX(-160);
+                player.anims.play('left', true);
+            }
+            else if (cursors.right.isDown) {
+                if (!this.walk.isPlaying) {
+                    this.walk.play();
+                }
+                player.setVelocityX(160);
+                player.anims.play('right', true);
+            }
+            else if (cursors.up.isDown) {
+                if (!this.walk.isPlaying) {
+                    this.walk.play();
+                }
+                player.setVelocityY(-160);
+                player.anims.play('turn', true);
+            }
+            else if (cursors.down.isDown) {
+                if (!this.walk.isPlaying) {
+                    this.walk.play();
+                }
+                player.setVelocityY(160);
+                player.anims.play('bottom', true);
+            }
+            else {
+                if (this.walk.isPlaying) {
+                    this.walk.stop();
+                }
+                player.setVelocityX(0);
+                player.anims.play('wait');
+            }
+        }
+
+        function tamaño(cant, type) {
+            switch (type) {
+                case 'w':
+                    return (screen.width * (cant / 100))
+                case 'h':
+                    return (screen.height * (cant / 100))
+                default:
+                    break;
+            }
+        }
+    </script>
+
+</body>
+
+</html>
