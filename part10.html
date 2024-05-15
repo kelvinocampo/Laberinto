@@ -49,7 +49,7 @@
         var gameOver = false;
         var scoreText;
         var timeText;
-        var tiempo = 120;
+        var tiempo = 60;
         var game = new Phaser.Game(config);
         function preload() {
             this.load.image('bone', './assets/bone.png');
@@ -69,7 +69,7 @@
             var paredesLayer = map.createLayer('paredes', tilesetParedes);
             paredesLayer.setCollisionByExclusion([-1]);
 
-            player = this.physics.add.sprite(60, 570, 'dude').setScale(.4).refreshBody().setScale(.5);
+            player = this.physics.add.sprite(60, 570, 'dude').setScale(.4);
             player.setBounce(0.2);
             player.setCollideWorldBounds(true);
             this.physics.world.setBoundsCollision(true, true, true, false);
@@ -146,7 +146,7 @@
             
             bombs = this.physics.add.group();
             scoreText = this.add.text(16, 16, '', { fontSize: '32px', fill: '#fff' });
-            timeText = this.add.text(tamaño(100, 'w') - 350, 16, 'Tiempo : ' + tiempo, { fontSize: '32px', fill: '#fff' });
+            timeText = this.add.text(1000, 16, 'Tiempo : ' + tiempo, { fontSize: '32px', fill: '#fff' });
             this.physics.add.overlap(player, bones, collectBone, null, this);
             this.physics.add.collider(player, bombs, hitBomb, null, this);
             
@@ -167,17 +167,18 @@
                     gameOver = true;
                     clearInterval(time)
                 }
+                console.log(timeText);
             }, 1000)
             
             
             function collectBone(player, bomb) {
                 bomb.disableBody(true, true);
                 score += 1;
-                tiempo += 20
+                tiempo += 5
                 scoreText.setText(`Partes encontradas : ${score} / 6`);
                 if (bones.countActive(true) === 0) {
                     this.physics.pause();
-                    player.setTint(0xfff);
+                    player.setTint(0x000);
                     player.anims.play('wait');
                     gameOver = true;
                     clearInterval(interval)
