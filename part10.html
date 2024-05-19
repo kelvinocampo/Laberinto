@@ -23,8 +23,8 @@
     <script type="text/javascript">
         var config = {
             type: Phaser.AUTO,
-            width: 1300,
-            height: 700,
+            width: 1280,
+            height: 640,
             parent: 'gameContainer',
             transparent: true,
             physics: {
@@ -62,6 +62,8 @@
             this.load.spritesheet('dude', './assets/Male_W.png', { frameWidth: 48, frameHeight: 96 });
         }
         function create() {
+
+            // mapa
             var map = this.make.tilemap({ key: 'map' });
             var tilesetPiso = map.addTilesetImage('piso', 'piso');
             var tilesetParedes = map.addTilesetImage('paredes', 'paredes');
@@ -69,11 +71,17 @@
             var paredesLayer = map.createLayer('paredes', tilesetParedes);
             paredesLayer.setCollisionByExclusion([-1]);
 
-            player = this.physics.add.sprite(60, 570, 'dude').setScale(.4);
+            // sonido
+            this.walk = this.sound.add('walk');
+
+            // jugador
+            player = this.physics.add.sprite(60, 570, 'dude').setScale(.2).refreshBody().setScale(.4);
             player.setBounce(0.2);
             player.setCollideWorldBounds(true);
             this.physics.world.setBoundsCollision(true, true, true, false);
             this.physics.add.collider(player, paredesLayer);
+
+            // animaciones
             this.anims.create({
                 key: 'turn',
                 frames: this.anims.generateFrameNumbers('dude', { start: 36, end: 47 }),
@@ -110,7 +118,8 @@
                 repeat: -1
             });
 
-            var numberOfBones = 5; // Número de huesos que quieres crear
+            // huesos
+            var numberOfBones = 5;
             var bonePositions = [
                 { x: 160, y: 150 },
                 { x: 160, y: 490 },
@@ -119,43 +128,42 @@
                 { x: 700, y: 150 },
                 { x: 1010, y: 200 }
             ];
-
             for (var i = 0; i <= numberOfBones; i++) {
                 var x = Phaser.Math.Between(0, game.config.width);
                 var y = Phaser.Math.Between(0, game.config.height);
                 bonePositions.push({ x: x, y: y });
             }
-
             bones = this.physics.add.group({
                 key: 'bone',
                 repeat: 5,
                 setXY: { x: 0, y: 0 }
             });
-
             bones.children.iterate(function (bone, index) {
                 bone.setX(bonePositions[index].x);
                 bone.setY(bonePositions[index].y);
             });
 
+            // cursor
             cursors = this.input.keyboard.createCursorKeys();
 
-            this.walk = this.sound.add('walk');
-
+            // puerta final
             door = this.physics.add.staticGroup();
             door.create(1217, 575, 'door')
-            
-            bombs = this.physics.add.group();
+
+
+            // Textos
             scoreText = this.add.text(16, 16, '', { fontSize: '32px', fill: '#fff' });
             timeText = this.add.text(1000, 16, 'Tiempo : ' + tiempo, { fontSize: '32px', fill: '#fff' });
-            this.physics.add.overlap(player, bones, collectBone, null, this);
-            this.physics.add.collider(player, bombs, hitBomb, null, this);
-            
+
+            //bombas
+            bombs = this.physics.add.group();
             var interval = setInterval(() => {
                 let timeout = setTimeout(() => {
                     createBomb()
                 }, Phaser.Math.Between(1000, 5000));
             }, 2000)
 
+            // tiempo
             var time = setInterval(() => {
                 tiempo -= 1
                 timeText.setText(`Tiempo : ${tiempo}`);
@@ -167,10 +175,13 @@
                     gameOver = true;
                     clearInterval(time)
                 }
-                console.log(timeText);
             }, 1000)
-            
-            
+
+            // colisiones
+            this.physics.add.overlap(player, bones, collectBone, null, this);
+            this.physics.add.collider(player, bombs, hitBomb, null, this);
+            this.physics.add.collider(player, door, win, null, this);
+
             function collectBone(player, bomb) {
                 bomb.disableBody(true, true);
                 score += 1;
@@ -187,13 +198,10 @@
                     clearInterval(time)
                 }
             }
-            
             function createBomb() {
-                var bomb = bombs.create(Phaser.Math.Between(-100, tamaño(100, 'w')), 0, 'bomb').setScale(.5).refreshBody().setScale(1.5);
+                var bomb = bombs.create(1280, 0, 'bomb').setScale(.5).refreshBody().setScale(1.5);
                 bomb.setVelocityY(Phaser.Math.Between(50, 100));
             }
-            this.physics.add.collider(player, door, win, null, this);
-            
             function hitBomb(player, bomb) {
                 clearInterval(interval)
                 scoreText.setText(`Has sido atrapado`);
@@ -203,30 +211,32 @@
                 player.setTint(0xff0000);
                 player.anims.play('wait');
             }
-            
-
             function win(player, door) {
                 clearInterval(interval)
                 clearInterval(time)
                 scoreText.setText(`Lo lograste`);
                 timeText.setText(`HASTA LUEGO`);
                 this.physics.pause();
-                player.setTint(0xff0000);
+                player.setTint(0x000);
                 player.anims.play('wait');
                 gameOver = true;
             }
-            
         }
 
         function update() {
+            // reestablece la velocidad
             player.body.velocity.x = 0;
             player.body.velocity.y = 0;
+
+            // finaliza el juego
             if (gameOver) {
                 if (this.walk.isPlaying) {
                     this.walk.stop();
                 }
                 return;
             }
+
+            // movimiento
             if (cursors.left.isDown) {
                 if (!this.walk.isPlaying) {
                     this.walk.play();
